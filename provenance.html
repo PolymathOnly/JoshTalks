@@ -1,0 +1,953 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Provenance — An Investigation into How Machines Imagine India</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Fraunces:ital,opsz,wght@0,9..144,300;0,9..144,450;0,9..144,600;0,9..144,700;0,9..144,900;1,9..144,450;1,9..144,600&family=Newsreader:ital,opsz,wght@0,6..72,400;0,6..72,500;0,6..72,600;1,6..72,400;1,6..72,500&family=IBM+Plex+Mono:wght@400;500;600&display=swap" rel="stylesheet">
+<style>
+/* ============================================================
+   TOKENS
+   ============================================================ */
+:root{
+  --ink:#12182B;
+  --ink-soft:#3D3A32;
+  --paper:#EDE6D8;
+  --paper-deep:#E2D7C1;
+  --paper-line: rgba(18,24,43,0.14);
+  --gold:#C8912E;
+  --madder:#9C3B2E;
+  --peacock:#1F5C52;
+  --model-a:#1F5C52;   /* Gemini 2.5 Flash Image */
+  --model-b:#3B4C86;   /* Gemini 3.1 Flash Image */
+  --model-c:#C8912E;   /* GPT Image 1 */
+  --cream-on-ink: rgba(237,230,216,0.86);
+  --cream-on-ink-dim: rgba(237,230,216,0.56);
+  --font-display: 'Fraunces', serif;
+  --font-body: 'Newsreader', serif;
+  --font-mono: 'IBM Plex Mono', monospace;
+  --measure: 68ch;
+  --edge: clamp(20px, 5vw, 88px);
+}
+
+*{box-sizing:border-box;}
+html{scroll-behavior:smooth;}
+body{
+  margin:0;
+  background:var(--paper);
+  color:var(--ink);
+  font-family:var(--font-body);
+  font-size:17px;
+  line-height:1.6;
+  -webkit-font-smoothing:antialiased;
+}
+img{max-width:100%;display:block;}
+a{color:inherit;}
+::selection{background:var(--gold);color:var(--ink);}
+
+@media (prefers-reduced-motion: reduce){
+  *{animation-duration:0.001ms !important; transition-duration:0.001ms !important; scroll-behavior:auto !important;}
+}
+
+/* ============================================================
+   SHARED TYPE UTILITIES
+   ============================================================ */
+.kicker{
+  font-family:var(--font-mono);
+  font-size:12px;
+  letter-spacing:0.16em;
+  text-transform:uppercase;
+  font-weight:600;
+}
+.section-num{
+  font-family:var(--font-mono);
+  font-size:12px;
+  letter-spacing:0.1em;
+  opacity:0.55;
+}
+h1,h2,h3{font-family:var(--font-display); font-weight:600; margin:0; letter-spacing:-0.01em;}
+.measure{max-width:var(--measure);}
+.stamp{
+  display:inline-flex;
+  align-items:center;
+  gap:6px;
+  font-family:var(--font-mono);
+  font-size:11px;
+  letter-spacing:0.08em;
+  text-transform:uppercase;
+  padding:3px 9px;
+  border:1px solid currentColor;
+  border-radius:2px;
+}
+.stamp.verified{color:var(--peacock);}
+.stamp.flag{color:var(--madder);}
+.stamp svg{width:11px;height:11px;flex:none;}
+
+.reveal{opacity:0; transform:translateY(18px); transition:opacity .7s ease, transform .7s ease;}
+.reveal.in-view{opacity:1; transform:translateY(0);}
+
+/* ============================================================
+   STICKY RAIL NAV
+   ============================================================ */
+#rail{
+  position:fixed; top:0; left:0; right:0; z-index:100;
+  display:flex; align-items:center; justify-content:space-between;
+  padding:14px var(--edge);
+  background:rgba(237,230,216,0.86);
+  backdrop-filter:blur(10px);
+  border-bottom:1px solid var(--paper-line);
+  font-family:var(--font-mono);
+  font-size:11px;
+  letter-spacing:0.06em;
+  text-transform:uppercase;
+  transform:translateY(-100%);
+  transition:transform .4s ease;
+}
+#rail.show{transform:translateY(0);}
+#rail .mark{font-family:var(--font-display); font-weight:700; font-size:15px; letter-spacing:0; text-transform:none;}
+#rail .links{display:flex; gap:22px;}
+#rail .links a{text-decoration:none; opacity:0.55; transition:opacity .2s;}
+#rail .links a.active{opacity:1; border-bottom:1px solid var(--madder); padding-bottom:2px;}
+@media (max-width: 880px){ #rail .links{display:none;} }
+
+/* ============================================================
+   COVER
+   ============================================================ */
+#cover{
+  min-height:100svh;
+  background:var(--ink);
+  color:var(--cream-on-ink);
+  display:flex; flex-direction:column; justify-content:space-between;
+  padding:26px var(--edge) 60px;
+  position:relative;
+  overflow:hidden;
+}
+#cover::before{
+  content:"";
+  position:absolute; inset:0;
+  background:
+    radial-gradient(ellipse 60% 45% at 82% 8%, rgba(200,145,46,0.16), transparent 60%),
+    radial-gradient(ellipse 50% 40% at 6% 96%, rgba(156,59,46,0.14), transparent 60%);
+  pointer-events:none;
+}
+.masthead-row{
+  display:flex; justify-content:space-between; align-items:flex-start;
+  font-family:var(--font-mono); font-size:11px; letter-spacing:0.1em; text-transform:uppercase;
+  color:var(--cream-on-ink-dim);
+  position:relative; z-index:1;
+  flex-wrap:wrap; gap:10px;
+}
+.cover-hero{
+  position:relative; z-index:1;
+  padding:40px 0 10px;
+}
+.cover-hero .kicker{color:var(--gold); margin-bottom:20px; display:block;}
+.cover-title{
+  font-size:clamp(52px, 11vw, 148px);
+  line-height:0.86;
+  font-weight:700;
+  margin:0 0 6px;
+}
+.cover-title em{font-style:italic; font-weight:450; color:var(--gold);}
+.cover-sub{
+  font-family:var(--font-body);
+  font-style:italic;
+  font-size:clamp(17px, 2.2vw, 24px);
+  color:var(--cream-on-ink);
+  max-width:640px;
+  margin-top:18px;
+}
+.cover-quote{
+  position:relative; z-index:1;
+  border-top:1px solid rgba(237,230,216,0.22);
+  padding-top:22px;
+  margin-top:44px;
+  display:grid;
+  grid-template-columns:1fr auto;
+  gap:24px;
+  align-items:end;
+}
+.cover-quote blockquote{
+  margin:0; font-family:var(--font-display); font-style:italic; font-weight:450;
+  font-size:clamp(19px, 2.6vw, 27px); line-height:1.28; max-width:680px;
+}
+.cover-quote cite{font-style:normal; font-family:var(--font-mono); font-size:11px; letter-spacing:0.06em; text-transform:uppercase; color:var(--cream-on-ink-dim); display:block; margin-top:12px;}
+.cover-meta{font-family:var(--font-mono); font-size:11px; color:var(--cream-on-ink-dim); text-align:right; line-height:1.8; white-space:nowrap;}
+
+/* ============================================================
+   GENERIC SECTION SHELL
+   ============================================================ */
+.section{padding:120px var(--edge); position:relative;}
+.section.tight{padding-top:80px; padding-bottom:80px;}
+.section-head{display:grid; grid-template-columns:120px 1fr; gap:32px; margin-bottom:56px;}
+.section-head h2{font-size:clamp(32px,4.2vw,52px); line-height:1.05;}
+.section-head .dek{font-family:var(--font-body); font-style:italic; color:var(--ink-soft); font-size:19px; margin-top:14px; max-width:56ch;}
+@media (max-width: 700px){ .section-head{grid-template-columns:1fr; gap:10px;} }
+.section.on-ink{background:var(--ink); color:var(--cream-on-ink);}
+.section.on-ink .dek{color:var(--cream-on-ink-dim);}
+.section.on-ink .section-num{color:var(--cream-on-ink-dim);}
+.rule{height:1px; background:var(--paper-line); border:none; margin:64px 0;}
+.on-ink .rule{background:rgba(237,230,216,0.16);}
+
+/* ============================================================
+   EDITORIAL
+   ============================================================ */
+#editorial .grid{display:grid; grid-template-columns:1.15fr 0.85fr; gap:64px;}
+#editorial .lede::first-letter{
+  font-family:var(--font-display); font-weight:700; font-size:74px; line-height:0.75;
+  float:left; margin:6px 10px 0 0; color:var(--madder);
+}
+#editorial p{margin:0 0 20px;}
+.margin-note{
+  font-family:var(--font-mono); font-size:12.5px; line-height:1.65; color:var(--ink-soft);
+  border-left:2px solid var(--gold); padding-left:18px;
+}
+.margin-note + .margin-note{margin-top:28px;}
+.margin-note b{color:var(--madder); display:block; margin-bottom:4px; text-transform:uppercase; letter-spacing:0.05em; font-size:11px;}
+@media (max-width: 860px){ #editorial .grid{grid-template-columns:1fr;} }
+
+/* ============================================================
+   METHOD
+   ============================================================ */
+.method-grid{display:grid; grid-template-columns:repeat(3,1fr); gap:1px; background:var(--paper-line); border:1px solid var(--paper-line); margin-bottom:56px;}
+.method-cell{background:var(--paper); padding:30px 26px;}
+.method-cell .num{font-family:var(--font-mono); font-size:34px; font-weight:600; color:var(--madder); line-height:1;}
+.method-cell .label{font-family:var(--font-mono); font-size:11px; text-transform:uppercase; letter-spacing:0.08em; margin-top:10px; color:var(--ink-soft);}
+.method-cell .sub{font-size:14.5px; margin-top:8px; color:var(--ink-soft); line-height:1.5;}
+@media (max-width:700px){ .method-grid{grid-template-columns:1fr;} }
+
+.field-notes{
+  background:var(--paper-deep);
+  border:1px solid var(--paper-line);
+  padding:30px 32px;
+  font-family:var(--font-mono);
+  font-size:13px;
+  line-height:1.75;
+}
+.field-notes .kicker{display:block; margin-bottom:16px; color:var(--madder);}
+.field-notes ul{margin:0; padding-left:18px;}
+.field-notes li{margin-bottom:12px;}
+.field-notes li b{color:var(--ink);}
+
+/* Instrument (empty-state objective benchmark) */
+.instrument{margin-top:64px;}
+.instrument-head{display:flex; align-items:baseline; justify-content:space-between; flex-wrap:wrap; gap:12px; margin-bottom:22px;}
+.instrument-head .stamp{margin-left:auto;}
+.instrument-grid{display:grid; grid-template-columns:repeat(3,1fr); gap:16px;}
+@media (max-width:760px){.instrument-grid{grid-template-columns:1fr;}}
+.instrument-card{
+  border:1.5px dashed rgba(18,24,43,0.3);
+  padding:22px 20px 26px;
+  position:relative;
+}
+.instrument-card h4{font-family:var(--font-display); font-weight:600; font-size:17px; margin:0 0 12px;}
+.instrument-card ul{margin:0; padding-left:16px; font-size:14px; color:var(--ink-soft); line-height:1.8;}
+.instrument-card .awaiting{
+  margin-top:16px; font-family:var(--font-mono); font-size:10.5px; letter-spacing:0.08em; text-transform:uppercase;
+  color:var(--madder); display:flex; align-items:center; gap:6px;
+}
+.instrument-card .awaiting::before{content:""; width:6px; height:6px; border-radius:50%; background:var(--madder); flex:none;}
+.instrument-note{font-size:14.5px; color:var(--ink-soft); margin-top:22px; max-width:70ch;}
+
+/* ============================================================
+   LEADERBOARD
+   ============================================================ */
+.legend{display:flex; gap:22px; flex-wrap:wrap; margin-bottom:44px; font-family:var(--font-mono); font-size:12px; text-transform:uppercase; letter-spacing:0.04em;}
+.legend .item{display:flex; align-items:center; gap:8px;}
+.legend .swatch{width:11px; height:11px; border-radius:2px;}
+
+.bigbars{display:flex; flex-direction:column; gap:22px; margin-bottom:70px;}
+.bigbar-row{display:grid; grid-template-columns:150px 1fr 56px; align-items:center; gap:16px;}
+.bigbar-row .name{font-family:var(--font-display); font-size:17px; font-weight:600;}
+.bigbar-row .track{height:34px; background:var(--paper-deep); position:relative; overflow:hidden;}
+.bigbar-row .fill{height:100%; width:0; transition:width 1.1s cubic-bezier(.2,.8,.2,1);}
+.bigbar-row .score{font-family:var(--font-mono); font-size:15px; text-align:right;}
+@media (max-width:640px){ .bigbar-row{grid-template-columns:90px 1fr 40px;} .bigbar-row .name{font-size:14px;} }
+
+.metric-charts{display:grid; grid-template-columns:repeat(2,1fr); gap:44px 56px;}
+@media (max-width:760px){ .metric-charts{grid-template-columns:1fr;} }
+.metric-chart h4{font-family:var(--font-mono); font-size:12px; text-transform:uppercase; letter-spacing:0.06em; margin-bottom:16px; color:var(--ink-soft);}
+.mbar-row{display:grid; grid-template-columns:26px 1fr 30px; align-items:center; gap:10px; margin-bottom:9px;}
+.mbar-row .tag{font-family:var(--font-mono); font-size:11px; font-weight:600;}
+.mbar-row .track{height:14px; background:var(--paper-deep);}
+.mbar-row .fill{height:100%; width:0; transition:width 1s ease;}
+.mbar-row .val{font-family:var(--font-mono); font-size:11px; text-align:right; color:var(--ink-soft);}
+
+/* ============================================================
+   DOSSIER
+   ============================================================ */
+.dossier-grid{display:grid; grid-template-columns:repeat(auto-fill, minmax(280px,1fr)); gap:1px; background:var(--paper-line); border:1px solid var(--paper-line);}
+.dcard{background:var(--paper); padding:24px 22px; cursor:pointer; transition:background .2s;}
+.dcard:hover{background:var(--paper-deep);}
+.dcard-top{display:flex; justify-content:space-between; align-items:flex-start; gap:10px;}
+.dcard .rank{font-family:var(--font-mono); font-size:11px; color:var(--ink-soft);}
+.dcard h3{font-family:var(--font-display); font-size:22px; margin:6px 0 14px;}
+.dcard .winners{display:flex; gap:8px; flex-wrap:wrap; margin-bottom:14px;}
+.wpill{font-family:var(--font-mono); font-size:10px; text-transform:uppercase; letter-spacing:0.04em; padding:4px 8px; border-radius:12px; color:#fff;}
+.dcard .quote{font-family:var(--font-body); font-style:italic; font-size:14.5px; color:var(--ink-soft); border-left:2px solid var(--paper-line); padding-left:12px; margin:0;}
+.dcard .flagline{margin-top:12px; display:flex; align-items:center; gap:6px; font-family:var(--font-mono); font-size:10.5px; text-transform:uppercase; color:var(--madder);}
+.dcard .expand{max-height:0; overflow:hidden; transition:max-height .4s ease;}
+.dcard.open .expand{max-height:400px; margin-top:16px; padding-top:16px; border-top:1px solid var(--paper-line);}
+.dcard .metric-line{display:flex; justify-content:space-between; font-family:var(--font-mono); font-size:12px; margin-bottom:6px; color:var(--ink-soft);}
+.dcard .metric-line span:last-child{color:var(--ink); font-weight:600;}
+.dcard .toggle-hint{font-family:var(--font-mono); font-size:10px; text-transform:uppercase; color:var(--ink-soft); opacity:0.5; margin-top:14px;}
+
+/* ============================================================
+   CASE STUDY
+   ============================================================ */
+#case-study{background:var(--ink); color:var(--cream-on-ink);}
+.case-grid{display:grid; grid-template-columns:0.9fr 1.1fr; gap:60px; align-items:start;}
+@media (max-width:860px){ .case-grid{grid-template-columns:1fr;} }
+.case-stat{margin-bottom:34px;}
+.case-stat .figure{font-family:var(--font-display); font-size:clamp(48px,7vw,86px); font-weight:700; color:var(--gold); line-height:1;}
+.case-stat .cap{font-family:var(--font-mono); font-size:12px; text-transform:uppercase; letter-spacing:0.06em; color:var(--cream-on-ink-dim); margin-top:8px;}
+.case-body p{margin:0 0 20px; color:var(--cream-on-ink);}
+.evidence-card{background:rgba(237,230,216,0.06); border:1px solid rgba(237,230,216,0.18); padding:18px 20px; margin:26px 0;}
+.evidence-card .who{font-family:var(--font-mono); font-size:11px; text-transform:uppercase; letter-spacing:0.06em; color:var(--gold); margin-bottom:8px;}
+.evidence-card p{margin:0; font-style:italic; font-family:var(--font-display); font-weight:450; font-size:17px; color:var(--cream-on-ink);}
+
+/* ============================================================
+   FAILURE TAXONOMY
+   ============================================================ */
+.tax-col{display:grid; grid-template-columns:repeat(3,1fr); gap:1px; background:var(--paper-line); border:1px solid var(--paper-line); margin-bottom:44px;}
+@media (max-width:760px){ .tax-col{grid-template-columns:1fr;} }
+.tax-head{background:var(--ink); color:var(--cream-on-ink); padding:18px 20px; font-family:var(--font-mono); font-size:11px; text-transform:uppercase; letter-spacing:0.08em;}
+.tax-body{background:var(--paper); padding:18px 20px 24px;}
+.fail-example{
+  background:var(--paper); border:1px solid var(--paper-line); padding:22px 24px;
+  display:grid; grid-template-columns:auto 1fr; gap:18px; align-items:start; margin-bottom:14px;
+}
+.fail-example .mark{font-family:var(--font-mono); font-size:20px; color:var(--madder); line-height:1;}
+.fail-example h5{font-family:var(--font-display); font-size:16.5px; margin:0 0 6px;}
+.fail-example p{margin:0; font-size:14.5px; color:var(--ink-soft);}
+.fail-example .tag{font-family:var(--font-mono); font-size:10px; text-transform:uppercase; letter-spacing:0.06em; color:var(--madder); margin-top:8px; display:inline-block;}
+
+/* ============================================================
+   PYRAMID / FRAMEWORK
+   ============================================================ */
+.framework-wrap{display:grid; grid-template-columns:0.9fr 1.1fr; gap:60px; align-items:center;}
+@media (max-width:860px){ .framework-wrap{grid-template-columns:1fr;} }
+.pyramid-tier{margin-bottom:0; padding:22px 26px; border-bottom:1px solid var(--paper-line);}
+.pyramid-tier:last-child{border-bottom:none;}
+.pyramid-tier .tname{font-family:var(--font-display); font-weight:700; font-size:22px;}
+.pyramid-tier .tdesc{font-size:14.5px; color:var(--ink-soft); margin-top:6px; max-width:48ch;}
+.pyramid-tier .tstat{font-family:var(--font-mono); font-size:11px; text-transform:uppercase; letter-spacing:0.06em; color:var(--madder); margin-top:10px;}
+
+/* ============================================================
+   REPORT (recs / limitations / future)
+   ============================================================ */
+.report-tabs{display:flex; gap:2px; margin-bottom:36px; flex-wrap:wrap;}
+.report-tab{
+  font-family:var(--font-mono); font-size:11px; text-transform:uppercase; letter-spacing:0.06em;
+  padding:10px 18px; background:var(--paper-deep); border:none; cursor:pointer; color:var(--ink-soft);
+}
+.report-tab.active{background:var(--ink); color:var(--paper);}
+.report-panel{display:none;}
+.report-panel.active{display:block;}
+.rec-grid{display:grid; grid-template-columns:repeat(3,1fr); gap:1px; background:var(--paper-line); border:1px solid var(--paper-line);}
+@media (max-width:800px){ .rec-grid{grid-template-columns:1fr;} }
+.rec-card{background:var(--paper); padding:26px 24px;}
+.rec-card .model{font-family:var(--font-mono); font-size:11px; text-transform:uppercase; letter-spacing:0.06em; padding:3px 8px; border-radius:10px; color:#fff; display:inline-block; margin-bottom:14px;}
+.rec-card h4{font-family:var(--font-display); font-size:19px; margin:0 0 14px;}
+.rec-card ul{margin:0; padding-left:18px; font-size:14.5px; color:var(--ink-soft); line-height:1.8;}
+.limits-list{display:grid; gap:1px; background:var(--paper-line); border:1px solid var(--paper-line);}
+.limit-row{background:var(--paper); padding:18px 22px; display:grid; grid-template-columns:200px 1fr; gap:20px;}
+@media (max-width:700px){ .limit-row{grid-template-columns:1fr; gap:6px;} }
+.limit-row .ltitle{font-family:var(--font-mono); font-size:12px; text-transform:uppercase; letter-spacing:0.04em; color:var(--madder);}
+.limit-row p{margin:0; font-size:14.5px; color:var(--ink-soft);}
+.future-list{display:grid; grid-template-columns:repeat(auto-fill,minmax(220px,1fr)); gap:18px;}
+.future-card{border:1px solid var(--paper-line); padding:20px; font-family:var(--font-mono); font-size:13px; color:var(--ink-soft); line-height:1.6;}
+.future-card b{display:block; font-family:var(--font-display); font-size:16px; color:var(--ink); margin-bottom:8px; font-weight:600;}
+
+/* ============================================================
+   CLOSING
+   ============================================================ */
+#closing{
+  background:var(--ink); color:var(--paper);
+  min-height:100svh; display:flex; align-items:center; justify-content:center; text-align:center;
+  padding:100px var(--edge);
+}
+#closing .statement{
+  max-width:900px;
+  font-family:var(--font-display); font-weight:450; font-style:italic;
+  font-size:clamp(22px, 3.4vw, 36px); line-height:1.42;
+}
+#closing .statement b{font-weight:700; font-style:normal; color:var(--gold);}
+#closing .sign{margin-top:56px; font-family:var(--font-mono); font-size:11px; letter-spacing:0.1em; text-transform:uppercase; color:var(--cream-on-ink-dim);}
+
+/* footer */
+footer{padding:40px var(--edge) 60px; font-family:var(--font-mono); font-size:11px; color:var(--ink-soft); display:flex; justify-content:space-between; flex-wrap:wrap; gap:10px; border-top:1px solid var(--paper-line);}
+</style>
+</head>
+<body>
+
+<nav id="rail">
+  <span class="mark">Provenance</span>
+  <div class="links">
+    <a href="#editorial" data-target="editorial">Editorial</a>
+    <a href="#method" data-target="method">Method</a>
+    <a href="#leaderboard" data-target="leaderboard">Leaderboard</a>
+    <a href="#dossier" data-target="dossier">States</a>
+    <a href="#case-study" data-target="case-study">UP Case Study</a>
+    <a href="#failures" data-target="failures">Failures</a>
+    <a href="#framework" data-target="framework">Framework</a>
+    <a href="#report" data-target="report">Report</a>
+  </div>
+</nav>
+
+<!-- ============================================================
+     COVER
+     ============================================================ -->
+<header id="cover">
+  <div class="masthead-row">
+    <span>Vol. I &nbsp;·&nbsp; No. 1 &nbsp;·&nbsp; July 2026</span>
+    <span>A Cultural Localization Benchmark</span>
+  </div>
+
+  <div class="cover-hero">
+    <span class="kicker">An Investigation</span>
+    <h1 class="cover-title">Prove<br>nance</h1>
+    <p class="cover-sub">How three frontier image models imagine ten Indian states — and what they get wrong when no one is watching for it.</p>
+  </div>
+
+  <div class="cover-quote">
+    <blockquote>
+      “I identified the state,” one participant wrote of Uttar Pradesh. He was shown the model's most-preferred image. He called it <b>Haryana</b>.
+      <cite>Amit, Participant 08 — Blind Human Evaluation</cite>
+    </blockquote>
+    <div class="cover-meta">
+      3 Models Evaluated<br>
+      10 States, One Prompt Each<br>
+      8 Participants · 79 Blind Ratings
+    </div>
+  </div>
+</header>
+
+<!-- ============================================================
+     EDITORIAL
+     ============================================================ -->
+<section class="section" id="editorial">
+  <div class="section-head">
+    <span class="section-num">01 — Editorial</span>
+    <div>
+      <h2>Photorealism was the wrong finish line.</h2>
+      <p class="dek">For three years, image-generation benchmarks have asked one question: does it look real? That question is quietly being answered. It's time to ask a harder one.</p>
+    </div>
+  </div>
+
+  <div class="grid">
+    <div class="lede measure">
+      <p>Every major image model released in the last eighteen months has closed the gap on anatomy, lighting, and skin texture. Six-fingered hands are a punchline from an earlier era. The failures that once defined an evaluation — warped faces, impossible shadows, garbled text — have become rare enough that flagging them barely counts as analysis anymore.</p>
+      <p>That convergence is real, and it changes what a benchmark is for. If every frontier model can render a photorealistic human being, photorealism stops being a differentiator and starts being a baseline. The interesting question moves one layer deeper: when a model renders <em>a family in Punjab</em> versus <em>a family in Uttar Pradesh</em>, does it actually know the difference — or does it reach for the same generic vocabulary of "Indian-ness" regardless of which state it was asked for?</p>
+      <p>We built a small, deliberately narrow benchmark to test exactly that. Three models. Ten states. One identical prompt per state, with no reference image to lean on. We then asked people — blind to which model made which image — to tell us not whether the picture was beautiful, but whether it was <em>true</em>.</p>
+      <p>What we found is not a story about one model beating another. It's a story about where the frontier has actually moved.</p>
+    </div>
+
+    <div>
+      <div class="margin-note">
+        <b>Why this matters</b>
+        A model that can't distinguish a Gujarati household from a Rajasthani one isn't just aesthetically generic — it's unreliable for education, media, and any product that claims to represent a culture rather than caricature it.
+      </div>
+      <div class="margin-note">
+        <b>What we didn't test</b>
+        Reference-image conditioning, video, sub-regional or district-level detail, and historical accuracy are all out of scope for this pass. See Future Work.
+      </div>
+      <div class="margin-note">
+        <b>A note on scale</b>
+        This is a pilot, not a census: 8 participants, 79 evaluations, one prompt per state. We treat every finding here as a strong signal worth investigating further — not a settled verdict.
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ============================================================
+     METHOD
+     ============================================================ -->
+<section class="section" id="method">
+  <div class="section-head">
+    <span class="section-num">02 — Method</span>
+    <div>
+      <h2>The question, and how we tried to answer it.</h2>
+      <p class="dek"><b style="font-style:normal;">Hypothesis:</b> as photorealism saturates, cultural localization — not visual fidelity — will increasingly separate frontier models from one another.</p>
+    </div>
+  </div>
+
+  <div class="method-grid">
+    <div class="method-cell">
+      <div class="num">03</div>
+      <div class="label">Models Evaluated</div>
+      <div class="sub">Gemini 2.5 Flash Image · Gemini 3.1 Flash Image · GPT Image 1. Codenamed A / B / C and randomized so evaluators never knew which model made which image.</div>
+    </div>
+    <div class="method-cell">
+      <div class="num">10</div>
+      <div class="label">Indian States</div>
+      <div class="sub">Punjab, Gujarat, Rajasthan, Uttar Pradesh, West Bengal, Kerala, Tamil Nadu, Maharashtra, Nagaland, and Jammu &amp; Kashmir — chosen for geographic and cultural spread, not for expected difficulty.</div>
+    </div>
+    <div class="method-cell">
+      <div class="num">1</div>
+      <div class="label">Prompt per State</div>
+      <div class="sub">Every model received the exact same text prompt per state. No reference images. Pure text-to-image generation — the model had to retrieve cultural knowledge, not copy it.</div>
+    </div>
+  </div>
+
+  <div class="method-grid" style="margin-bottom:64px;">
+    <div class="method-cell">
+      <div class="num">8</div>
+      <div class="label">Participants</div>
+      <div class="sub">Recruited independently of the research team. Each rated all 30 images (10 states × 3 models).</div>
+    </div>
+    <div class="method-cell">
+      <div class="num">79</div>
+      <div class="label">Blind Evaluations</div>
+      <div class="sub">One participant's Jammu &amp; Kashmir response was not recorded, so the true N is 79, not the 80 the design called for. We report the real number throughout.</div>
+    </div>
+    <div class="method-cell">
+      <div class="num">4</div>
+      <div class="label">Questions per Image Set</div>
+      <div class="sub">Identify the state · Best representation · Most realistic · Best follows the prompt · Best for educational use. Free-text justification was optional.</div>
+    </div>
+  </div>
+
+  <div class="field-notes reveal">
+    <span class="kicker">Field Notes — Read Before You Read the Charts</span>
+    <ul>
+      <li><b>Two participants' response sets are identical.</b> Every one of Daksh's and Sushant's 40 individual answers (10 states × 4 questions) matches exactly. We can't determine from the data whether this is a genuine coincidence of independent taste or a duplicated submission. Per the research team's direction, both are retained and counted as independent contributors throughout this report — we flag it here so the reader can weigh it accordingly.</li>
+      <li><b>One participant voted a single model per state.</b> Amit selected the same letter across all four questions for 9 of 10 states, rather than discriminating between "most realistic" and "best follows prompt" separately. His votes are counted as written, but read as one composite preference per state rather than four independent signals.</li>
+      <li><b>State identification was 96% accurate</b> — 76 of 79 responses. All three misidentifications came from the same participant (Amit): Uttar Pradesh called <b>Haryana</b>, Kerala called <b>Andhra Pradesh</b>, and Jammu &amp; Kashmir shortened to <b>Kashmir</b>.</li>
+    </ul>
+  </div>
+
+  <div class="instrument">
+    <div class="instrument-head">
+      <div>
+        <h3 style="font-size:22px;">The Objective Benchmark — An Instrument, Not Yet Applied</h3>
+      </div>
+      <span class="stamp flag"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 8v4M12 16h.01"/><circle cx="12" cy="12" r="10"/></svg>Awaiting Scoring</span>
+    </div>
+    <div class="instrument-grid">
+      <div class="instrument-card">
+        <h4>Prompt Compliance</h4>
+        <ul><li>Family</li><li>Festival</li><li>Traditional clothing</li><li>Regional food</li><li>State architecture</li><li>Cultural symbols</li></ul>
+        <div class="awaiting">Rubric defined · scores pending</div>
+      </div>
+      <div class="instrument-card">
+        <h4>Technical Quality</h4>
+        <ul><li>Photorealism</li><li>Anatomy</li><li>Text &amp; watermark artifacts</li></ul>
+        <div class="awaiting">Rubric defined · scores pending</div>
+      </div>
+      <div class="instrument-card">
+        <h4>Cultural Localization</h4>
+        <ul><li>Cultural consistency</li><li>Cultural leakage (negative-scored)</li><li>State distinctiveness</li><li>Cultural precision</li><li>State-specific richness</li><li>Common-sense reasoning</li></ul>
+        <div class="awaiting">Rubric defined · scores pending</div>
+      </div>
+    </div>
+    <p class="instrument-note">We designed this three-layer rubric — including deliberate negative scoring for cultural mistakes, since we consider a confident wrong answer more harmful than a generic one — before running the study. It has not yet been applied to the 30 images. Rather than backfill it with estimated numbers, we're publishing the instrument as-is and reporting only what we've actually measured: the human evaluation below. The scored version is the immediate next phase of this work; see <a href="#report" style="color:var(--madder); border-bottom:1px solid var(--madder); text-decoration:none;">Future Work</a>.</p>
+  </div>
+</section>
+
+<!-- ============================================================
+     LEADERBOARD
+     ============================================================ -->
+<section class="section" id="leaderboard" style="background:var(--paper-deep);">
+  <div class="section-head">
+    <span class="section-num">03 — Human Evaluation</span>
+    <div>
+      <h2>Photorealism tied. Trust didn't.</h2>
+      <p class="dek">Across 79 blind evaluations, participants didn't split evenly — but not for the reason you'd expect.</p>
+    </div>
+  </div>
+
+  <div class="legend">
+    <div class="item"><span class="swatch" style="background:var(--model-a);"></span>Gemini 2.5 Flash Image</div>
+    <div class="item"><span class="swatch" style="background:var(--model-b);"></span>Gemini 3.1 Flash Image</div>
+    <div class="item"><span class="swatch" style="background:var(--model-c);"></span>GPT Image 1</div>
+  </div>
+
+  <div class="bigbars">
+    <div class="bigbar-row reveal">
+      <div class="name">Gemini 2.5</div>
+      <div class="track"><div class="fill" data-w="53.4" style="background:var(--model-a);"></div></div>
+      <div class="score">71</div>
+    </div>
+    <div class="bigbar-row reveal">
+      <div class="name">Gemini 3.1</div>
+      <div class="track"><div class="fill" data-w="84.2" style="background:var(--model-b);"></div></div>
+      <div class="score">112</div>
+    </div>
+    <div class="bigbar-row reveal">
+      <div class="name">GPT Image 1</div>
+      <div class="track"><div class="fill" data-w="100" style="background:var(--model-c);"></div></div>
+      <div class="score">133</div>
+    </div>
+  </div>
+  <p class="measure" style="font-size:14.5px; color:var(--ink-soft); margin-top:-40px; margin-bottom:64px;">Combined score across all four judgment categories (max 79 votes per category, 316 total). Gemini 3.1's jump over Gemini 2.5 — the same family, one generation apart — is the single largest capability move in the dataset.</p>
+
+  <div class="metric-charts">
+    <div class="metric-chart reveal">
+      <h4>Best Represents the State</h4>
+      <div class="mbar-row"><span class="tag" style="color:var(--model-a);">A</span><div class="track"><div class="fill" data-w="45.5" style="background:var(--model-a);"></div></div><span class="val">15</span></div>
+      <div class="mbar-row"><span class="tag" style="color:var(--model-b);">B</span><div class="track"><div class="fill" data-w="100" style="background:var(--model-b);"></div></div><span class="val">33</span></div>
+      <div class="mbar-row"><span class="tag" style="color:var(--model-c);">C</span><div class="track"><div class="fill" data-w="93.9" style="background:var(--model-c);"></div></div><span class="val">31</span></div>
+    </div>
+    <div class="metric-chart reveal">
+      <h4>Most Realistic</h4>
+      <div class="mbar-row"><span class="tag" style="color:var(--model-a);">A</span><div class="track"><div class="fill" data-w="86.2" style="background:var(--model-a);"></div></div><span class="val">25</span></div>
+      <div class="mbar-row"><span class="tag" style="color:var(--model-b);">B</span><div class="track"><div class="fill" data-w="100" style="background:var(--model-b);"></div></div><span class="val">29</span></div>
+      <div class="mbar-row"><span class="tag" style="color:var(--model-c);">C</span><div class="track"><div class="fill" data-w="86.2" style="background:var(--model-c);"></div></div><span class="val">25</span></div>
+    </div>
+    <div class="metric-chart reveal">
+      <h4>Best Follows the Prompt</h4>
+      <div class="mbar-row"><span class="tag" style="color:var(--model-a);">A</span><div class="track"><div class="fill" data-w="44.7" style="background:var(--model-a);"></div></div><span class="val">17</span></div>
+      <div class="mbar-row"><span class="tag" style="color:var(--model-b);">B</span><div class="track"><div class="fill" data-w="63.2" style="background:var(--model-b);"></div></div><span class="val">24</span></div>
+      <div class="mbar-row"><span class="tag" style="color:var(--model-c);">C</span><div class="track"><div class="fill" data-w="100" style="background:var(--model-c);"></div></div><span class="val">38</span></div>
+    </div>
+    <div class="metric-chart reveal">
+      <h4>Best for Educational Content</h4>
+      <div class="mbar-row"><span class="tag" style="color:var(--model-a);">A</span><div class="track"><div class="fill" data-w="35.9" style="background:var(--model-a);"></div></div><span class="val">14</span></div>
+      <div class="mbar-row"><span class="tag" style="color:var(--model-b);">B</span><div class="track"><div class="fill" data-w="66.7" style="background:var(--model-b);"></div></div><span class="val">26</span></div>
+      <div class="mbar-row"><span class="tag" style="color:var(--model-c);">C</span><div class="track"><div class="fill" data-w="100" style="background:var(--model-c);"></div></div><span class="val">39</span></div>
+    </div>
+  </div>
+
+  <div class="rule"></div>
+  <div class="measure">
+    <p style="font-size:15.5px; color:var(--ink-soft);"><b style="color:var(--ink);">Reading the split:</b> realism is nearly a three-way tie (25 / 29 / 25) — the convergence our thesis predicted. But on prompt-following and educational suitability, GPT Image 1 pulls decisively ahead. That gap is where this study's real signal lives: participants weren't rewarding a prettier picture, they were rewarding the picture that gave them more specific, checkable cultural detail to point to — often via visible regional-language text. <a href="#failures" style="color:var(--madder); text-decoration:none; border-bottom:1px solid var(--madder);">More on that in Failure Modes →</a></p>
+  </div>
+</section>
+
+<!-- ============================================================
+     STATE DOSSIER
+     ============================================================ -->
+<section class="section" id="dossier">
+  <div class="section-head">
+    <span class="section-num">04 — State-Wise Investigation</span>
+    <div>
+      <h2>Ten states, ranked by consensus.</h2>
+      <p class="dek">Ordered from the state participants agreed on most decisively to the state that split opinion most evenly. Tap a card to open its full record.</p>
+    </div>
+  </div>
+  <div class="dossier-grid" id="dossier-grid"></div>
+</section>
+
+<!-- ============================================================
+     CASE STUDY — UTTAR PRADESH
+     ============================================================ -->
+<section class="section" id="case-study">
+  <div class="section-head">
+    <span class="section-num">05 — Case Study</span>
+    <div>
+      <h2>Uttar Pradesh: winning by not losing.</h2>
+      <p class="dek">The most decisive result in the dataset is also the most misleading one, if you read it too quickly.</p>
+    </div>
+  </div>
+
+  <div class="case-grid">
+    <div>
+      <div class="case-stat">
+        <div class="figure">78%</div>
+        <div class="cap">Consensus share for GPT Image 1 on Uttar Pradesh — tied for the highest of any state</div>
+      </div>
+      <div class="case-stat">
+        <div class="figure">1 / 3</div>
+        <div class="cap">Misidentifications in the entire study happened on this one state</div>
+      </div>
+    </div>
+    <div class="case-body">
+      <p>Uttar Pradesh produced the single most one-sided result of the investigation: GPT Image 1 won every prompt-following vote (8 of 8) and nearly every other category. By the numbers, it looks like the state where localization worked best.</p>
+      <p>Read the justifications, and a different story appears.</p>
+      <div class="evidence-card">
+        <div class="who">Mughees, Participant 03</div>
+        <p>"Others had diya-on-table error."</p>
+      </div>
+      <div class="evidence-card">
+        <div class="who">Abhigyan, Participant 06</div>
+        <p>"Generic North India."</p>
+      </div>
+      <p>GPT's image won not because participants believed it was distinctly, unmistakably Uttar Pradesh — it won because the two competing models made more visible mistakes, like a diya positioned incorrectly above a dinner table. And even the winning image wasn't safe: one participant, evaluating what the group had just rated the state's <em>best</em> image, misidentified it as Haryana — a neighboring state with an overlapping but distinct visual identity.</p>
+      <p>This is the gap between a <em>relative</em> win and <em>absolute</em> cultural fidelity, and it's the clearest evidence in this study that consensus alone can overstate how well a model actually understands a place. Compare this to Tamil Nadu, which had almost identical consensus (78.2%) but zero misidentifications and comments citing accurate script and festival detail — a win for the right reasons, not just the fewest wrong ones.</p>
+    </div>
+  </div>
+</section>
+
+<!-- ============================================================
+     FAILURE MODES
+     ============================================================ -->
+<section class="section" id="failures" style="background:var(--paper-deep);">
+  <div class="section-head">
+    <span class="section-num">06 — Failure Mode Investigation</span>
+    <div>
+      <h2>Five ways a culturally competent image still goes wrong.</h2>
+      <p class="dek">Documented by the research team during image review, and corroborated where possible by participant justifications above.</p>
+    </div>
+  </div>
+
+  <div class="fail-example reveal">
+    <div class="mark">✕</div>
+    <div>
+      <h5>Generic North Indian Representation</h5>
+      <p>Uttar Pradesh's household resembled a composite of North Indian visual tropes rather than anything specific to UP — the failure this study's case study is built around.</p>
+      <span class="tag">Localization Failure</span>
+    </div>
+  </div>
+  <div class="fail-example reveal">
+    <div class="mark">✕</div>
+    <div>
+      <h5>Contextual Hallucination</h5>
+      <p>A Punjabi household scene included Gandhi's spinning wheel (charkha) — a nationally recognizable symbol, but not one tied to Punjabi domestic life specifically. The model reached for "recognizably Indian" instead of "recognizably Punjabi."</p>
+      <span class="tag">Contextual Error</span>
+    </div>
+  </div>
+  <div class="fail-example reveal">
+    <div class="mark">✕</div>
+    <div>
+      <h5>Decoration Bias</h5>
+      <p>Marigold garlands, one of the most common AI shorthand cues for "Indian festival," appeared in states where they aren't part of the typical decorative vocabulary — a texture the model over-generalized from wherever it appears most often in training data.</p>
+      <span class="tag">Cultural Leakage</span>
+    </div>
+  </div>
+  <div class="fail-example reveal">
+    <div class="mark">✕</div>
+    <div>
+      <h5>Common-Sense Error</h5>
+      <p>A Uttar Pradesh scene placed a lit diya directly above a dinner table — the exact error one participant cited by name as the reason a competing model lost the state.</p>
+      <span class="tag">Common Sense</span>
+    </div>
+  </div>
+  <div class="fail-example reveal">
+    <div class="mark">✕</div>
+    <div>
+      <h5>Misaligned Festival Greeting</h5>
+      <p>On-image festival text didn't fully match the visual context surrounding it — the greeting and the scene told two slightly different stories about what was being celebrated.</p>
+      <span class="tag">Contextual Error</span>
+    </div>
+  </div>
+
+  <div class="rule"></div>
+
+  <div class="measure">
+    <h3 style="font-size:24px; margin-bottom:16px;">The unexpected discovery: language did more work than food.</h3>
+    <p style="color:var(--ink-soft); font-size:16px;">Going in, we expected regional cuisine to be the strongest cultural signal. It wasn't. Most models rendered regionally correct food across nearly every state, so it stopped being a useful signal for telling models apart — participants barely mentioned it. What they mentioned constantly was <b>on-image script</b>: Gurmukhi in Punjab, Gujarati lettering with Navratri, Devanagari for Diwali, Malayalam for Onam, Tamil for Pongal. When a model rendered real, correctly-scripted regional text, participants trusted the whole image more — even though script accuracy says nothing about anatomy or lighting. We'd flag this as an interesting emergent cue, not a deliberate design win: none of the three models were built to optimize for legible regional typography, and we don't yet know how reliable it is outside this sample.</p>
+  </div>
+</section>
+
+<!-- ============================================================
+     FRAMEWORK
+     ============================================================ -->
+<section class="section" id="framework">
+  <div class="section-head">
+    <span class="section-num">07 — Original Framework</span>
+    <div>
+      <h2>The Cultural Localization Pyramid.</h2>
+      <p class="dek">A proposed lens for reading any cultural-image benchmark — including this one. Not a benchmark output; an interpretive frame the research team is proposing for how to think about results like these.</p>
+    </div>
+  </div>
+
+  <div class="framework-wrap">
+    <div>
+      <p class="measure" style="color:var(--ink-soft); font-size:15.5px;">Every model in this study cleared the bottom tier almost perfectly. The separation between them opened up in the middle and top tiers — and that's where we think future benchmarks, including the objective layer of this one, should spend their attention.</p>
+    </div>
+    <div style="border:1px solid var(--paper-line);">
+      <div class="pyramid-tier" style="background:var(--paper-deep);">
+        <div class="tname">Reasoning</div>
+        <div class="tdesc">Does the model understand <em>why</em> an element belongs — coherently composing correct cultural knowledge into a scene, not just placing recognizable objects near each other?</div>
+        <div class="tstat">Widest divergence between models</div>
+      </div>
+      <div class="pyramid-tier" style="background:var(--paper);">
+        <div class="tname">Localization</div>
+        <div class="tdesc">Can the model tell <em>this</em> state apart from its neighbors — Uttar Pradesh from Haryana, Kerala from Andhra Pradesh — rather than defaulting to a regional generic?</div>
+        <div class="tstat">Where this study found its clearest failures</div>
+      </div>
+      <div class="pyramid-tier" style="background:#F1EBDD;">
+        <div class="tname">Recognition</div>
+        <div class="tdesc">Can the model render "an Indian family," "a festival," "traditional dress" — legibly, photorealistically, without anatomical error?</div>
+        <div class="tstat">Effectively solved · 96% state-ID accuracy across all models</div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ============================================================
+     REPORT — recs / limits / future
+     ============================================================ -->
+<section class="section" id="report" style="background:var(--paper-deep);">
+  <div class="section-head">
+    <span class="section-num">08 — The Report</span>
+    <div>
+      <h2>What we'd tell each lab, and what we'd tell ourselves.</h2>
+      <p class="dek">Recommendations, limitations, and the next phase of this work.</p>
+    </div>
+  </div>
+
+  <div class="report-tabs">
+    <button class="report-tab active" data-panel="recs">Recommendations</button>
+    <button class="report-tab" data-panel="limits">Limitations</button>
+    <button class="report-tab" data-panel="future">Future Work</button>
+  </div>
+
+  <div class="report-panel active" id="panel-recs">
+    <div class="rec-grid">
+      <div class="rec-card">
+        <span class="model" style="background:var(--model-c);">GPT Image 1</span>
+        <h4>Protect the edge, widen it</h4>
+        <ul>
+          <li>Strongest on prompt-following and educational suitability — investigate whether legible regional-script generation can be made a reliable, tested capability rather than an emergent side-effect.</li>
+          <li>Realism parity with Gemini means the next differentiator is depth of state-specific detail, not surface polish.</li>
+        </ul>
+      </div>
+      <div class="rec-card">
+        <span class="model" style="background:var(--model-b);">Gemini 3.1</span>
+        <h4>The improvement is real — extend it</h4>
+        <ul>
+          <li>The single largest generational jump in this study (+41 points over Gemini 2.5). Whatever training or architecture change drove that should be identified and doubled down on.</li>
+          <li>Led "Best Represents" outright — worth understanding why it's trusted for authenticity even where it trails on prompt precision.</li>
+        </ul>
+      </div>
+      <div class="rec-card">
+        <span class="model" style="background:var(--model-a);">Gemini 2.5</span>
+        <h4>Still competitive on realism alone</h4>
+        <ul>
+          <li>Tied for the realism lead despite trailing on every localization-adjacent metric — confirms photorealism and cultural accuracy are separable capabilities that need to be evaluated separately.</li>
+          <li>Weakest on prompt-following (17 of 79) — the clearest, most actionable gap to close.</li>
+        </ul>
+      </div>
+    </div>
+  </div>
+
+  <div class="report-panel" id="panel-limits">
+    <div class="limits-list">
+      <div class="limit-row"><div class="ltitle">Small Panel</div><p>8 participants and 79 evaluations is enough to surface directional signal, not enough to treat any single-state result as statistically settled.</p></div>
+      <div class="limit-row"><div class="ltitle">One Prompt, One Draw</div><p>Each model generated one image per state. We don't know how much of any result reflects a single generation's luck versus the model's typical behavior.</p></div>
+      <div class="limit-row"><div class="ltitle">Subjective Scoring</div><p>"Best represents" and "most realistic" were left to participant judgment without a shared, written rubric — the Objective Benchmark instrument in Section 02 exists specifically to address this in the next phase.</p></div>
+      <div class="limit-row"><div class="ltitle">Language-Cue Confound</div><p>If legible regional script drove trust as strongly as Section 06 suggests, participants may have been partly evaluating typography rendering rather than cultural accuracy per se. Worth isolating in a follow-up.</p></div>
+      <div class="limit-row"><div class="ltitle">Two Identical Response Sets</div><p>Flagged in Section 02 — Daksh's and Sushant's full response sets match exactly. Retained per the research team's decision, but any re-analysis should test sensitivity to this pair.</p></div>
+      <div class="limit-row"><div class="ltitle">Ten States of Twenty-Eight</div><p>This sample can't speak to states, union territories, or sub-regional identities it didn't include.</p></div>
+    </div>
+  </div>
+
+  <div class="report-panel" id="panel-future">
+    <div class="future-list">
+      <div class="future-card"><b>Score the Instrument</b>Apply the Objective Benchmark rubric from Section 02 to all 30 existing images, including negative scoring for cultural mistakes.</div>
+      <div class="future-card"><b>Reference-Image Conditioning</b>Test whether providing a real reference photo changes localization accuracy versus pure text-to-image.</div>
+      <div class="future-card"><b>Video Generation</b>Extend the same states and prompt logic to text-to-video models, where motion and duration add new failure surfaces.</div>
+      <div class="future-card"><b>District-Level Localization</b>Push past state-level identity into sub-regional distinctiveness — a much harder test of the Reasoning tier.</div>
+      <div class="future-card"><b>Historical Periods</b>Evaluate whether models can localize correctly across time as well as place.</div>
+      <div class="future-card"><b>Cross-Cultural Replication</b>Run the same methodology outside India to test whether these findings are India-specific or general to underrepresented-culture generation.</div>
+    </div>
+  </div>
+</section>
+
+<!-- ============================================================
+     CLOSING
+     ============================================================ -->
+<section id="closing">
+  <div class="statement">
+    The first generation of AI learned to create images that <b>looked real</b>. The next generation must learn to create images that are <b>culturally trustworthy</b>. As photorealism becomes commonplace, the true measure of intelligence will no longer be visual fidelity, but the ability to retrieve, localize, and coherently compose cultural knowledge into authentic human experiences.
+    <div class="sign">This benchmark is an attempt to measure that next frontier.</div>
+  </div>
+</section>
+
+<footer>
+  <span>Provenance — Vol. I, No. 1</span>
+  <span>3 models · 10 states · 79 evaluations · 1 objective instrument, unscored</span>
+</footer>
+
+<script>
+// ---------- Data (derived from Survey Responses, Model Decoder, Leaderboard) ----------
+const MODEL_NAME = {A:'Gemini 2.5', B:'Gemini 3.1', C:'GPT Image 1'};
+const MODEL_COLOR = {A:'var(--model-a)', B:'var(--model-b)', C:'var(--model-c)'};
+
+const STATES = [
+  {name:'Tamil Nadu', decisiveness:0.782, misid:[], quotes:[['Ativ','Tamil Pongal.'],['Dhruv','Complexion and references accurate.']],
+   metrics:{represents:{w:'C',s:0.88},realistic:{w:'A',s:0.62},prompt:{w:'C',s:0.88},edtech:{w:'C',s:0.75}}},
+  {name:'Uttar Pradesh', decisiveness:0.78, misid:['Amit → Haryana'], quotes:[['Mughees','Others had diya-on-table error.'],['Abhigyan','Generic North India.']],
+   metrics:{represents:{w:'C',s:0.62},realistic:{w:'C',s:0.62},prompt:{w:'C',s:1.0},edtech:{w:'C',s:0.88}}},
+  {name:'Nagaland', decisiveness:0.655, misid:[], quotes:[['Ativ','Hornbill festival.'],['Dhruv','Hornbill references accurate.']],
+   metrics:{represents:{w:'C',s:0.75},realistic:{w:'B',s:0.5},prompt:{w:'C',s:0.62},edtech:{w:'C',s:0.75}}},
+  {name:'West Bengal', decisiveness:0.62, misid:[], quotes:[['Dhruv','Tagore portrait, food and clothing accurate.'],['Ativ','Durga Puja.']],
+   metrics:{represents:{w:'B',s:0.62},realistic:{w:'B',s:0.62},prompt:{w:'B',s:0.62},edtech:{w:'B',s:0.62}}},
+  {name:'Maharashtra', decisiveness:0.593, misid:[], quotes:[['Ativ','Gudi Padwa.'],['Dhruv','Most culturally accurate.']],
+   metrics:{represents:{w:'B',s:0.75},realistic:{w:'B',s:0.5},prompt:{w:'B',s:0.5},edtech:{w:'B',s:0.62}}},
+  {name:'Punjab', decisiveness:0.562, misid:[], quotes:[['Ativ','Gurmukhi/Vaisakhi cues.'],['Dhruv','Best represents Punjabi culture.']],
+   metrics:{represents:{w:'B',s:0.38},realistic:{w:'A',s:0.5},prompt:{w:'C',s:0.62},edtech:{w:'C',s:0.75}}},
+  {name:'Jammu & Kashmir', decisiveness:0.535, misid:['Amit → "Kashmir" (shortened)'], quotes:[['Ativ','Navreh.'],['Dhruv','Food and clothing accurate.']],
+   metrics:{represents:{w:'B',s:0.57},realistic:{w:'B',s:0.57},prompt:{w:'B',s:0.57},edtech:{w:'B',s:0.43}}},
+  {name:'Gujarat', decisiveness:0.53, misid:[], quotes:[['Ativ','Gujarati script/Navratri.'],['Dhruv','Regional food and clothing accurate.']],
+   metrics:{represents:{w:'A',s:0.62},realistic:{w:'C',s:0.5},prompt:{w:'A',s:0.5},edtech:{w:'A',s:0.5}}},
+  {name:'Rajasthan', decisiveness:0.53, misid:[], quotes:[['Ativ','Pagris, puppets.'],['Dhruv','Puppets and sweets appropriate.']],
+   metrics:{represents:{w:'B',s:0.62},realistic:{w:'B',s:0.5},prompt:{w:'B',s:0.5},edtech:{w:'B',s:0.5}}},
+  {name:'Kerala', decisiveness:0.53, misid:['Amit → Andhra Pradesh'], quotes:[['Ativ','Malayalam Onam.'],['Dhruv','Most culturally accurate.']],
+   metrics:{represents:{w:'C',s:0.5},realistic:{w:'C',s:0.5},prompt:{w:'A',s:0.5},edtech:{w:'C',s:0.62}}},
+];
+
+const grid = document.getElementById('dossier-grid');
+STATES.forEach((s, i) => {
+  const card = document.createElement('div');
+  card.className = 'dcard';
+  const pills = Object.entries(s.metrics).map(([k,v]) =>
+    `<span class="wpill" style="background:${MODEL_COLOR[v.w]};">${k}: ${v.w}</span>`
+  ).join('');
+  const metricLines = Object.entries(s.metrics).map(([k,v]) => {
+    const label = {represents:'Best Represents',realistic:'Most Realistic',prompt:'Best Follows Prompt',edtech:'EdTech Choice'}[k];
+    return `<div class="metric-line"><span>${label}</span><span style="color:${MODEL_COLOR[v.w]};">${MODEL_NAME[v.w]} · ${Math.round(v.s*100)}%</span></div>`;
+  }).join('');
+  const quote = s.quotes[0];
+  card.innerHTML = `
+    <div class="dcard-top">
+      <div>
+        <div class="rank">No. ${String(i+1).padStart(2,'0')} of 10 · ${Math.round(s.decisiveness*100)}% consensus</div>
+        <h3>${s.name}</h3>
+      </div>
+    </div>
+    <div class="winners">${pills}</div>
+    <p class="quote">"${quote[1]}" <span style="opacity:.6;">— ${quote[0]}</span></p>
+    ${s.misid.length ? `<div class="flagline">⚑ Misidentified: ${s.misid.join(', ')}</div>` : `<div class="flagline" style="color:var(--peacock);">✓ 100% state ID accuracy</div>`}
+    <div class="expand">${metricLines}</div>
+    <div class="toggle-hint">Tap for full record</div>
+  `;
+  card.addEventListener('click', () => card.classList.toggle('open'));
+  grid.appendChild(card);
+});
+
+// ---------- Rail nav ----------
+const rail = document.getElementById('rail');
+const railLinks = rail.querySelectorAll('.links a');
+window.addEventListener('scroll', () => {
+  rail.classList.toggle('show', window.scrollY > window.innerHeight * 0.6);
+}, {passive:true});
+
+const navSections = ['editorial','method','leaderboard','dossier','case-study','failures','framework','report'].map(id => document.getElementById(id));
+const navObserver = new IntersectionObserver((entries) => {
+  entries.forEach(e => {
+    if(e.isIntersecting){
+      railLinks.forEach(a => a.classList.toggle('active', a.dataset.target === e.target.id));
+    }
+  });
+}, {rootMargin:'-40% 0px -55% 0px'});
+navSections.forEach(s => s && navObserver.observe(s));
+
+// ---------- Reveal + bar fill on view ----------
+const revealObserver = new IntersectionObserver((entries) => {
+  entries.forEach(e => {
+    if(e.isIntersecting){
+      e.target.classList.add('in-view');
+      e.target.querySelectorAll('.fill').forEach(f => { f.style.width = f.dataset.w + '%'; });
+      revealObserver.unobserve(e.target);
+    }
+  });
+}, {threshold:0.2});
+document.querySelectorAll('.reveal, .bigbars, .metric-charts').forEach(el => revealObserver.observe(el));
+
+// ---------- Report tabs ----------
+document.querySelectorAll('.report-tab').forEach(tab => {
+  tab.addEventListener('click', () => {
+    document.querySelectorAll('.report-tab').forEach(t => t.classList.remove('active'));
+    document.querySelectorAll('.report-panel').forEach(p => p.classList.remove('active'));
+    tab.classList.add('active');
+    document.getElementById('panel-' + tab.dataset.panel).classList.add('active');
+  });
+});
+</script>
+</body>
+</html>
