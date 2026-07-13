@@ -1,0 +1,12 @@
+Rule 1: Identical Prompt (Ensures a fair comparison across models.)
+Rule 2: Zero-Shot Generation (Measures the model’s native capability without human optimization.)
+Rule 3: Prompt-Only Evaluation (Evaluates the model’s intrinsic understanding of Indian cultural context.)
+Rule 4: Default Configuration (Prevents hidden advantages from custom settings.)
+Rule 5: Complete Generation Log (Ensures reproducibility and transparency.)
+- Model name
+- Model version
+- Platform used
+- Prompt
+- Timestamp
+- Generation settings (if applicable)
+- Model’s self-description
